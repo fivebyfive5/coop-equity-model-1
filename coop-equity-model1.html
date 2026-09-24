@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Co-op equity model</title>
+<style>
+:root {
+  --paper: #FFFFFF;
+  --paper-panel: #FFFFFF;
+  --ink: #1A1A1A;
+  --ink-soft: #555555;
+  --ink-faint: #888888;
+  --line: #DDDDDD;
+  --brass: #1A1A1A;
+  --brass-soft: #F0F0F0;
+  --equity: #1A7A4A;
+  --equity-soft: #E6F4EC;
+  --cost: #B3401F;
+  --cost-soft: #FBEAE3;
+  --alert: #C0271A;
+  --alert-soft: #FBE3E0;
+  --font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  --font-num: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+}
+:root:not([data-theme="light"]) {
+  @media (prefers-color-scheme: dark) {
+    --paper: #121212;
+    --paper-panel: #1C1C1C;
+    --ink: #F0F0F0;
+    --ink-soft: #B0B0B0;
+    --ink-faint: #808080;
+    --line: #3A3A3A;
+    --brass: #F0F0F0;
+    --brass-soft: #2A2A2A;
+    --equity: #4FBF80;
+    --equity-soft: #16281F;
+    --cost: #E37C57;
+    --cost-soft: #2E1E17;
+    --alert: #E5695A;
+    --alert-soft: #2E1815;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #121212;
+  --paper-panel: #1C1C1C;
+  --ink: #F0F0F0;
+  --ink-soft: #B0B0B0;
+  --ink-faint: #808080;
+  --line: #3A3A3A;
+  --brass: #F0F0F0;
+  --brass-soft: #2A2A2A;
+  --equity: #4FBF80;
+  --equity-soft: #16281F;
+  --cost: #E37C57;
+  --cost-soft: #2E1E17;
+  --alert: #E5695A;
+  --alert-soft: #2E1815;
+}
+* { box-sizing: border-box; }
+html {
+  scroll-padding-top: env(safe-area-inset-top, 0px);
+}
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 1.6;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.wrap {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 2.25rem 1.5rem 4rem;
+}
+header.page {
+  margin-bottom: 1.75rem;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 1.5rem;
+}
+h1 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: clamp(1.6rem, 3.5vw, 2.15rem);
+  margin: 0 0 0.35rem;
+  letter-spacing: -0.01em;
+}
+.tagline {
+  color: var(--ink-soft);
+  font-size: 0.95rem;
+  max-width: 62ch;
+  margin: 0;
+}
+.summary-bar {
+  margin-top: 1.5rem;
+  background: var(--paper-panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1rem 1.25rem;
+}
+.summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.summary-row .num {
+  font-family: var(--font-num);
+  color: var(--ink);
+  font-size: 0.95rem;
+}
+.stack-bar {
+  display: flex;
+  height: 22px;
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0.85rem 0 0.6rem;
+  border: 1px solid var(--line);
+}
+.stack-seg { height: 100%; }
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.1rem;
+  font-size: 0.78rem;
+  color: var(--ink-soft);
+}
+.legend span.sw {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 4px;
+  margin-right: 0.4rem;
+  vertical-align: -1px;
+}
+.subtotal-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--ink-faint);
+  padding: 0.4rem 0 0.1rem;
+  font-family: var(--font-num);
+}
+.gap-note {
+  margin-top: 0.75rem;
+  font-size: 0.85rem;
+  padding: 0.55rem 0.75rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+.gap-note.ok { background: var(--equity-soft); border-color: var(--equity); color: var(--equity); }
+.gap-note.bad { background: var(--alert-soft); border-color: var(--alert); color: var(--alert); }
+.cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 2rem;
+  margin-top: 2rem;
+}
+@media (min-width: 860px) {
+  .cols { grid-template-columns: minmax(0, 340px) minmax(0, 1fr); }
+}
+.section-title {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 500;
+  margin: 0 0 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--line);
+}
+fieldset {
+  border: none;
+  margin: 0 0 1.75rem;
+  padding: 0;
+}
+fieldset legend {
+  font-size: 0.78rem;
+  text-transform: none;
+  color: var(--brass);
+  font-weight: 500;
+  margin-bottom: 0.6rem;
+  padding: 0;
+}
+.field-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.45rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.field-row label {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.field-row input[type="number"] {
+  width: 100px;
+  font-family: var(--font-num);
+  font-size: 0.88rem;
+  text-align: right;
+  padding: 0.3rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: var(--paper-panel);
+  color: var(--ink);
+}
+.field-row input[type="number"]:focus,
+.field-row input[type="range"]:focus {
+  outline: none;
+  border-color: var(--brass);
+  box-shadow: 0 0 0 2px var(--brass-soft);
+}
+.field-row input[type="number"]:disabled {
+  opacity: 0.4;
+}
+.field-row.slider {
+  grid-template-columns: 1fr;
+  gap: 0.3rem;
+}
+.field-row.slider .slider-top {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+}
+.field-row.slider .slider-top .val {
+  font-family: var(--font-num);
+  color: var(--ink);
+}
+input[type="range"] {
+  width: 100%;
+  accent-color: var(--brass);
+}
+.out-panel {
+  background: var(--paper-panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1.25rem 1.4rem;
+  margin-bottom: 1.5rem;
+}
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 0.5rem;
+}
+.metric {
+  border-left: 2px solid var(--line);
+  padding-left: 0.7rem;
+}
+.metric .label {
+  font-size: 0.72rem;
+  color: var(--ink-faint);
+  margin-bottom: 0.2rem;
+}
+.metric .value {
+  font-family: var(--font-num);
+  font-size: 1.15rem;
+  font-weight: 500;
+}
+.metric.equity { border-left-color: var(--equity); }
+.metric.equity .value { color: var(--equity); }
+.metric.cost { border-left-color: var(--cost); }
+.metric.cost .value { color: var(--cost); }
+.cost-breakdown {
+  display: flex;
+  height: 30px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  margin: 1rem 0 0.5rem;
+}
+.chart-holder {
+  position: relative;
+  height: 280px;
+  margin-top: 0.5rem;
+}
+table.compare {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+table.compare th, table.compare td {
+  text-align: right;
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--line);
+  font-family: var(--font-num);
+}
+table.compare th:first-child, table.compare td:first-child {
+  text-align: left;
+  font-family: var(--font-body);
+  color: var(--ink-soft);
+}
+table.compare thead th {
+  font-family: var(--font-body);
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-bottom: 1px solid var(--ink-faint);
+}
+.row-label-equity { color: var(--equity); }
+.row-label-cost { color: var(--cost); }
+.foot-note {
+  font-size: 0.78rem;
+  color: var(--ink-faint);
+  margin-top: 2.25rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  max-width: 72ch;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="page">
+  <h1>Co-op housing equity model</h1>
+  <p class="tagline">Model the capital stack, monthly costs and per-resident equity build-up for a mutual home ownership style co-op. Adjust anything on the left; every figure on the right recalculates.</p>
+
+  <div class="summary-bar">
+    <div class="summary-row">
+      <span>Total capital required <span class="num" id="sumRequired">£0</span></span>
+      <span>Total raised <span class="num" id="sumRaised">£0</span></span>
+    </div>
+    <div class="stack-bar" id="stackBar"></div>
+    <div class="legend" id="stackLegend"></div>
+    <div class="gap-note" id="gapNote"></div>
+  </div>
+</header>
+
+<div class="cols">
+
+  <div class="inputs-col">
+    <div class="section-title">The capital stack</div>
+
+    <fieldset>
+      <legend>Property &amp; setup costs</legend>
+      <div class="field-row">
+        <label for="price">Purchase price</label>
+        <input type="number" id="price" value="950000" step="5000" min="0">
+      </div>
+      <div class="subtotal-row"><span>Stamp duty (SDLT), standard rates</span><span id="sdltVal">–</span></div>
+      <div class="field-row">
+        <label for="legalCosts">Legal &amp; survey costs</label>
+        <input type="number" id="legalCosts" value="10000" step="1000" min="0">
+      </div>
+      <div class="field-row">
+        <label for="renoCosts">Renovation / setup</label>
+        <input type="number" id="renoCosts" value="25000" step="5000" min="0">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Non-repayable</legend>
+      <div class="field-row">
+        <label for="grants"><input type="checkbox" id="grantsOn" checked style="margin-right:0.4rem;vertical-align:-2px;accent-color:var(--brass);">Grants</label>
+        <input type="number" id="grants" value="150000" step="5000" min="0">
+      </div>
+      <div class="field-row">
+        <label for="donations"><input type="checkbox" id="donationsOn" checked style="margin-right:0.4rem;vertical-align:-2px;accent-color:var(--brass);">Donations</label>
+        <input type="number" id="donations" value="50000" step="5000" min="0">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Equity (CPI-indexed shares)</legend>
+      <div class="field-row">
+        <label for="residentEquity"><input type="checkbox" id="residentEquityOn" checked style="margin-right:0.4rem;vertical-align:-2px;accent-color:var(--brass);">Resident equity, total</label>
+        <input type="number" id="residentEquity" value="250000" step="5000" min="0">
+      </div>
+      <div class="field-row">
+        <label for="numResidents">Number of residents</label>
+        <input type="number" id="numResidents" value="6" step="1" min="1" max="30">
+      </div>
+      <div class="field-row">
+        <label for="communityEquity"><input type="checkbox" id="communityEquityOn" checked style="margin-right:0.4rem;vertical-align:-2px;accent-color:var(--brass);">Community equity, total</label>
+        <input type="number" id="communityEquity" value="250000" step="5000" min="0">
+      </div>
+      <div class="field-row">
+        <label for="numCommunity">Number of community investors</label>
+        <input type="number" id="numCommunity" value="5" step="1" min="0" max="30">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Debt</legend>
+      <div class="field-row">
+        <label for="loanstock0Amt"><input type="checkbox" id="loanstock0On" checked style="margin-right:0.4rem;vertical-align:-2px;accent-color:var(--brass);">Loanstock, 0%</label>
+        <input type="number" id="loanstock0Amt" value="35000" step="5000" min="0">
+      </div>
+      <div class="field-row slider">
+        <div class="slider-top"><span>Term</span><span class="val" id="loanstock0YearsVal">10 yrs</span></div>
+        <input type="range" id="loanstock0Years" min="1" max="30" step="1" value="10">
+      </div>
+      <div class="field-row">
+        <label for="loanstock3Amt"><input type="checkbox" id="loanstock3On" checked style="margin-right:0.4rem;vertical-align:-2px;accent-color:var(--brass);">Loanstock, 3%</label>
+        <input type="number" id="loanstock3Amt" value="35000" step="5000" min="0">
+      </div>
+      <div class="field-row slider">
+        <div class="slider-top"><span>Term</span><span class="val" id="loanstock3YearsVal">15 yrs</span></div>
+        <input type="range" id="loanstock3Years" min="1" max="30" step="1" value="15">
+      </div>
+      <div class="field-row">
+        <label for="loanstock5Amt"><input type="checkbox" id="loanstock5On" checked style="margin-right:0.4rem;vertical-align:-2px;accent-color:var(--brass);">Loanstock, 5%</label>
+        <input type="number" id="loanstock5Amt" value="30000" step="5000" min="0">
+      </div>
+      <div class="field-row slider">
+        <div class="slider-top"><span>Term</span><span class="val" id="loanstock5YearsVal">20 yrs</span></div>
+        <input type="range" id="loanstock5Years" min="1" max="30" step="1" value="20">
+      </div>
+      <div class="field-row">
+        <label for="instAmt"><input type="checkbox" id="instOn" checked style="margin-right:0.4rem;vertical-align:-2px;accent-color:var(--brass);">Co-op / institutional loan, amount</label>
+        <input type="number" id="instAmt" value="100000" step="5000" min="0">
+      </div>
+      <div class="field-row slider">
+        <div class="slider-top"><span>Institutional loan rate</span><span class="val" id="instRateVal">6.5%</span></div>
+        <input type="range" id="instRate" min="0" max="10" step="0.1" value="6.5">
+      </div>
+      <div class="field-row slider">
+        <div class="slider-top"><span>Institutional loan term</span><span class="val" id="instYearsVal">20 yrs</span></div>
+        <input type="range" id="instYears" min="1" max="30" step="1" value="20">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Running costs &amp; assumptions</legend>
+      <div class="field-row">
+        <label for="serviceCharge">Monthly service charge, whole property (insurance, maintenance, utilities)</label>
+        <input type="number" id="serviceCharge" value="1500" step="50" min="0">
+      </div>
+      <div class="subtotal-row"><span>Per resident</span><span id="serviceChargePerResident">–</span></div>
+      <div class="field-row slider">
+        <div class="slider-top"><span>CPI / equity indexing</span><span class="val" id="cpiVal">3.0%</span></div>
+        <input type="range" id="cpi" min="0" max="8" step="0.1" value="3.0">
+      </div>
+      <div class="field-row slider">
+        <div class="slider-top"><span>Debt-free capital user fee</span><span class="val" id="feeVal">1.2%</span></div>
+        <input type="range" id="fee" min="0" max="5" step="0.1" value="1.2">
+      </div>
+      <div class="field-row">
+        <label for="marketRent">Comparable market rent, per resident/mo</label>
+        <input type="number" id="marketRent" value="1093" step="25" min="0">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Each resident's monthly payment</legend>
+      <div class="subtotal-row"><span>Standard (equal-split) payment, for reference</span><span id="standardPaymentVal">–</span></div>
+      <div id="residentPaymentsList"></div>
+      <div class="subtotal-row" style="cursor:pointer;color:var(--brass);text-decoration:underline;" id="resetPaymentsBtn">Reset all to standard</div>
+    </fieldset>
+  </div>
+
+  <div class="outputs-col">
+    <div class="section-title">What a resident actually pays and owns</div>
+
+    <div class="out-panel">
+      <div class="metric-grid">
+        <div class="metric">
+          <div class="label">Debt paid off by</div>
+          <div class="value" id="debtFreeYear">–</div>
+        </div>
+        <div class="metric cost">
+          <div class="label">Monthly cost today</div>
+          <div class="value" id="monthlyNow">–</div>
+        </div>
+        <div class="metric equity">
+          <div class="label">Equity after 10 yrs</div>
+          <div class="value" id="equity10">–</div>
+        </div>
+        <div class="metric equity">
+          <div class="label">Equity after 20 yrs</div>
+          <div class="value" id="equity20">–</div>
+        </div>
+      </div>
+      <div class="cost-breakdown" id="costBreakdown"></div>
+      <div class="legend" id="costLegend"></div>
+    </div>
+
+    <div class="out-panel">
+      <div class="section-title" style="border:none;margin-bottom:0.4rem;">Equity build-up over time</div>
+      <div class="chart-holder"><canvas id="equityChart"></canvas></div>
+      <table class="compare" style="margin-top:1rem;">
+        <thead>
+          <tr><th style="text-align:left;">Resident</th><th>Pays/mo</th><th>Fixed (svc+interest)</th><th>To equity/mo</th><th>Year 10</th><th>Year 20</th><th>Year 30</th></tr>
+        </thead>
+        <tbody id="residentTableBody"></tbody>
+      </table>
+      <p style="font-size:0.78rem;color:var(--ink-faint);margin-top:0.6rem;margin-bottom:0;">"Fixed" and "To equity" are today's split — the fixed portion shrinks as the loan amortises, so more of the same payment converts to equity in later years automatically.</p>
+    </div>
+
+    <div class="out-panel">
+      <div class="section-title" style="border:none;margin-bottom:0.4rem;">Co-op vs renting vs buying solo</div>
+      <table class="compare">
+        <thead>
+          <tr><th style="text-align:left;">Monthly cost</th><th>Now</th><th>Year 10</th><th>Year 20</th><th>Year 30</th></tr>
+        </thead>
+        <tbody id="compareBody"></tbody>
+      </table>
+      <p style="font-size:0.8rem;color:var(--ink-faint);margin-top:0.9rem;margin-bottom:0;" id="soloNote"></p>
+    </div>
+  </div>
+
+</div>
+
+<p class="foot-note">
+  Each funding source has a checkbox next to its name — untick one to see the stack, the funding gap, and every downstream figure recompute as if that source weren't available at all, without losing the amount you've typed in. Stamp duty is calculated automatically from the purchase price at standard residential rates (no first-time-buyer relief, since that only applies to individuals, not a co-op purchasing as an entity) — change the price and it updates on its own; legal, survey and renovation costs stay separately editable. The resident list under "Each resident's monthly payment" grows or shrinks automatically with the number of residents set above. Any row you haven't personally edited keeps tracking the live standard payment automatically — change the price, loan terms, or resident count and it updates on its own. The moment you type into a row, it's treated as a deliberate choice and stops auto-updating, staying exactly where you set it regardless of what else changes; "Reset all to standard" clears that and lets every row resume tracking again. Service charge and interest are treated as fixed costs every resident must cover; anything paid above that converts straight to that resident's equity, and paying less slows their equity build accordingly, matching the CCKC document's own "pay only interest, ultra-low housing cost" option. Assumes each loanstock tier and the institutional loan amortise on schedule at their own fixed rate — the three loanstock tiers (0%, 3%, 5%) can be sized and termed independently and are simply summed together each month, matching how the CCKC document itself staggers loanstock into different tranches by rate and term — with equity credited monthly from the principal portion of debt service only (interest is a real cost, not equity), and each resident's accumulated equity indexed to the CPI rate you set. It does not model property appreciation, void periods, arrears, tax (SDLT, income tax on loanstock interest, CGT on withdrawal), or FCA/Co-operatives UK registration costs. Cross-check any real proposal with Radical Routes, Catalyst Collective, or Co-operative &amp; Community Finance before relying on it.
+</p>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+function fmt(n) {
+  n = Math.round(n);
+  return (n < 0 ? '-£' : '£') + Math.abs(n).toLocaleString('en-GB');
+}
+function fmtShort(n) {
+  n = Math.round(n);
+  var sign = n < 0 ? '-' : '';
+  n = Math.abs(n);
+  if (n >= 1000000) return sign + '£' + (n/1000000).toFixed(2) + 'm';
+  if (n >= 1000) return sign + '£' + Math.round(n/1000) + 'k';
+  return sign + '£' + n;
+}
+function el(id) { return document.getElementById(id); }
+function num(id) { return parseFloat(el(id).value) || 0; }
+
+function residentialSDLT(price) {
+  var bands = [[0,125000,0],[125000,250000,0.02],[250000,925000,0.05],[925000,1500000,0.10],[1500000,Infinity,0.12]];
+  var sdlt = 0;
+  for (var i = 0; i < bands.length; i++) {
+    var lo = bands[i][0], hi = bands[i][1], r = bands[i][2];
+    if (price > lo) sdlt += (Math.min(price, hi) - lo) * r;
+  }
+  return sdlt;
+}
+
+function amortSchedule(principal, annualRatePct, years) {
+  var n = Math.max(1, Math.round(years * 12));
+  var r = annualRatePct / 100 / 12;
+  var payment;
+  if (r === 0) payment = principal / n;
+  else payment = principal * r / (1 - Math.pow(1 + r, -n));
+  var balance = principal;
+  var rows = [];
+  for (var m = 1; m <= n; m++) {
+    var interest = balance * r;
+    var princ = payment - interest;
+    if (princ > balance) princ = balance;
+    balance -= princ;
+    rows.push({ interest: interest, principal: princ, balance: balance });
+  }
+  return rows;
+}
+
+var chart = null;
+var lastStandardPayment = 560;
+
+function syncResidentInputs(numResidents, defaultPayment) {
+  var container = el('residentPaymentsList');
+  var existing = container.querySelectorAll('.field-row').length;
+  if (existing < numResidents) {
+    for (var i = existing + 1; i <= numResidents; i++) {
+      var row = document.createElement('div');
+      row.className = 'field-row';
+      row.innerHTML = '<label for="residentPay' + i + '">Resident ' + i + '</label>' +
+        '<input type="number" id="residentPay' + i + '" value="' + Math.round(defaultPayment) + '" step="10" min="0">';
+      container.appendChild(row);
+      el('residentPay' + i).addEventListener('input', function() {
+        this.dataset.customized = '1';
+        recalc();
+      });
+    }
+  } else if (existing > numResidents) {
+    for (var k = existing; k > numResidents; k--) {
+      container.removeChild(container.lastElementChild);
+    }
+  }
+  // Rows the person hasn't manually edited keep tracking the live standard payment
+  var inputs = container.querySelectorAll('input');
+  for (var j = 0; j < inputs.length; j++) {
+    if (!inputs[j].dataset.customized) {
+      inputs[j].value = Math.round(defaultPayment);
+    }
+  }
+}
+
+function recalc() {
+  var price = num('price'), reno = num('renoCosts');
+  var legalCosts = num('legalCosts');
+  var sdlt = residentialSDLT(price);
+  var tx = sdlt + legalCosts;
+  el('sdltVal').textContent = fmt(sdlt);
+  ['grants','donations','residentEquity','communityEquity','loanstock0Amt','loanstock3Amt','loanstock5Amt','instAmt'].forEach(function(id) {
+    var toggleId = id === 'grants' ? 'grantsOn' : id === 'donations' ? 'donationsOn' : id === 'residentEquity' ? 'residentEquityOn' : id === 'communityEquity' ? 'communityEquityOn' : id === 'loanstock0Amt' ? 'loanstock0On' : id === 'loanstock3Amt' ? 'loanstock3On' : id === 'loanstock5Amt' ? 'loanstock5On' : 'instOn';
+    el(id).disabled = !el(toggleId).checked;
+  });
+  var grants = el('grantsOn').checked ? num('grants') : 0;
+  var donations = el('donationsOn').checked ? num('donations') : 0;
+  var residentEquity = el('residentEquityOn').checked ? num('residentEquity') : 0;
+  var numResidents = Math.max(1, Math.round(num('numResidents')));
+  var communityEquity = el('communityEquityOn').checked ? num('communityEquity') : 0;
+  var numCommunity = Math.max(0, Math.round(num('numCommunity')));
+  var loanstock0Amt = el('loanstock0On').checked ? num('loanstock0Amt') : 0;
+  var loanstock0Years = num('loanstock0Years');
+  var loanstock3Amt = el('loanstock3On').checked ? num('loanstock3Amt') : 0;
+  var loanstock3Years = num('loanstock3Years');
+  var loanstock5Amt = el('loanstock5On').checked ? num('loanstock5Amt') : 0;
+  var loanstock5Years = num('loanstock5Years');
+  var loanstockTotal = loanstock0Amt + loanstock3Amt + loanstock5Amt;
+  var instAmt = el('instOn').checked ? num('instAmt') : 0;
+  var instRate = num('instRate'), instYears = num('instYears');
+  var serviceCharge = num('serviceCharge'), cpi = num('cpi'), fee = num('fee'), marketRent = num('marketRent');
+  el('serviceChargePerResident').textContent = fmt(serviceCharge / numResidents) + '/mo';
+
+  el('loanstock0YearsVal').textContent = loanstock0Years + ' yrs';
+  el('loanstock3YearsVal').textContent = loanstock3Years + ' yrs';
+  el('loanstock5YearsVal').textContent = loanstock5Years + ' yrs';
+  el('instRateVal').textContent = instRate.toFixed(1) + '%';
+  el('instYearsVal').textContent = instYears + ' yrs';
+  el('cpiVal').textContent = cpi.toFixed(1) + '%';
+  el('feeVal').textContent = fee.toFixed(1) + '%';
+
+  var totalRequired = price + tx + reno;
+  var totalRaised = grants + donations + residentEquity + communityEquity + loanstockTotal + instAmt;
+  var gap = totalRequired - totalRaised;
+
+  el('sumRequired').textContent = fmt(totalRequired);
+  el('sumRaised').textContent = fmt(totalRaised);
+
+  var segs = [
+    { label: 'Grants', val: grants, color: 'var(--equity)' },
+    { label: 'Donations', val: donations, color: 'var(--brass)' },
+    { label: 'Resident equity', val: residentEquity, color: '#3F7A6B' },
+    { label: 'Community equity', val: communityEquity, color: '#6FA394' },
+    { label: 'Loanstock, 0%', val: loanstock0Amt, color: '#B9C7A8' },
+    { label: 'Loanstock, 3%', val: loanstock3Amt, color: 'var(--cost)' },
+    { label: 'Loanstock, 5%', val: loanstock5Amt, color: '#A66655' },
+    { label: 'Institutional loan', val: instAmt, color: '#7A4A3A' }
+  ];
+  var stackBar = el('stackBar');
+  stackBar.innerHTML = '';
+  var basis = Math.max(totalRequired, totalRaised, 1);
+  segs.forEach(function(s) {
+    if (s.val <= 0) return;
+    var d = document.createElement('div');
+    d.className = 'stack-seg';
+    d.style.width = (s.val / basis * 100) + '%';
+    d.style.background = s.color;
+    stackBar.appendChild(d);
+  });
+  var legend = el('stackLegend');
+  legend.innerHTML = segs.filter(function(s){return s.val>0;}).map(function(s) {
+    return '<span><span class="sw" style="background:' + s.color + '"></span>' + s.label + ' ' + fmtShort(s.val) + '</span>';
+  }).join('');
+
+  var gapNote = el('gapNote');
+  if (Math.abs(gap) < 1) {
+    gapNote.className = 'gap-note ok';
+    gapNote.textContent = 'Fully funded — raised matches the capital required.';
+  } else if (gap > 0) {
+    gapNote.className = 'gap-note bad';
+    gapNote.textContent = 'Shortfall of ' + fmt(gap) + ' — raised is less than what the purchase requires.';
+  } else {
+    gapNote.className = 'gap-note ok';
+    gapNote.textContent = 'Surplus of ' + fmt(-gap) + ' — raised more than the purchase requires.';
+  }
+
+  var loanstock0Sched = amortSchedule(loanstock0Amt, 0, loanstock0Years);
+  var loanstock3Sched = amortSchedule(loanstock3Amt, 3, loanstock3Years);
+  var loanstock5Sched = amortSchedule(loanstock5Amt, 5, loanstock5Years);
+  function combinedLs(m) {
+    var a = m <= loanstock0Sched.length ? loanstock0Sched[m-1] : { interest: 0, principal: 0 };
+    var b = m <= loanstock3Sched.length ? loanstock3Sched[m-1] : { interest: 0, principal: 0 };
+    var c = m <= loanstock5Sched.length ? loanstock5Sched[m-1] : { interest: 0, principal: 0 };
+    return { interest: a.interest + b.interest + c.interest, principal: a.principal + b.principal + c.principal };
+  }
+  var loanstockMaxTerm = Math.max(loanstock0Sched.length, loanstock3Sched.length, loanstock5Sched.length);
+  var instSched = amortSchedule(instAmt, instRate, instYears);
+  var maxMonths = 480;
+  var cpiMonthly = Math.pow(1 + cpi / 100, 1/12) - 1;
+  var feeMonthly = fee / 100 / 12;
+  var targetBlock = totalRequired / Math.max(1, numResidents + numCommunity);
+
+  // Quick month-1 standard payment, computed early so new resident rows can default to it
+  var m1ls = combinedLs(1);
+  var m1ins = instSched.length ? instSched[0] : { interest: 0, principal: 0 };
+  var m1ServicePerResident = serviceCharge / numResidents;
+  var m1StandardPayment = m1ServicePerResident + (m1ls.interest + m1ins.interest) / numResidents + (m1ls.principal + m1ins.principal) / numResidents;
+
+  syncResidentInputs(numResidents, m1StandardPayment);
+  var residentPayments = [];
+  for (var ri = 1; ri <= numResidents; ri++) residentPayments.push(num('residentPay' + ri));
+
+  var balance = 0;
+  var residentBalances = new Array(numResidents).fill(0);
+  var series = [];
+  var debtFreeMonth = null;
+  var firstMonthCharge = null, firstMonthInterest = 0, firstMonthPrincipal = 0, firstMonthService = 0;
+
+  for (var m = 1; m <= maxMonths; m++) {
+    var ls = combinedLs(m);
+    var ins = m <= instSched.length ? instSched[m-1] : { interest: 0, principal: 0 };
+    var totalPrincipal = ls.principal + ins.principal;
+    var totalInterest = ls.interest + ins.interest;
+    var totalDebtService = totalPrincipal + totalInterest;
+    var servicePerResident = serviceCharge / numResidents;
+    var monthlyCharge;
+
+    if (totalDebtService > 0.5) {
+      var perResPrincipal = totalPrincipal / numResidents;
+      var perResInterest = totalInterest / numResidents;
+      monthlyCharge = servicePerResident + perResInterest + perResPrincipal;
+      balance = balance * (1 + cpiMonthly) + perResPrincipal;
+
+      for (var i = 0; i < numResidents; i++) {
+        var pc = Math.max(0, residentPayments[i] - servicePerResident - perResInterest);
+        residentBalances[i] = residentBalances[i] * (1 + cpiMonthly) + pc;
+      }
+
+      if (m === 1) { firstMonthInterest = perResInterest; firstMonthPrincipal = perResPrincipal; firstMonthService = servicePerResident; }
+    } else {
+      if (debtFreeMonth === null) debtFreeMonth = m;
+      var feeAmt = Math.max(0, targetBlock - balance) * feeMonthly;
+      monthlyCharge = servicePerResident + feeAmt;
+      balance = balance * (1 + cpiMonthly);
+
+      for (var j = 0; j < numResidents; j++) {
+        var feeAmt_j = Math.max(0, targetBlock - residentBalances[j]) * feeMonthly;
+        residentBalances[j] = residentBalances[j] * (1 + cpiMonthly);
+        if (residentPayments[j] > servicePerResident + feeAmt_j) {
+          residentBalances[j] += (residentPayments[j] - servicePerResident - feeAmt_j);
+        }
+      }
+
+      if (m === 1) { firstMonthInterest = 0; firstMonthPrincipal = 0; firstMonthService = servicePerResident; }
+    }
+    if (m === 1) firstMonthCharge = monthlyCharge;
+    if (m % 12 === 0) series.push({ year: m / 12, balance: balance, charge: monthlyCharge, residentBalances: residentBalances.slice() });
+  }
+
+  el('standardPaymentVal').textContent = fmt(m1StandardPayment) + '/mo (today)';
+  lastStandardPayment = m1StandardPayment;
+
+  el('debtFreeYear').textContent = debtFreeMonth ? 'year ' + Math.ceil(debtFreeMonth/12) : 'beyond 40 yrs';
+  el('monthlyNow').textContent = fmt(firstMonthCharge) + '/mo';
+  var y10 = series[9] || series[series.length-1];
+  var y20 = series[19] || series[series.length-1];
+  el('equity10').textContent = fmt(y10.balance);
+  el('equity20').textContent = fmt(y20.balance);
+
+  var costBar = el('costBreakdown');
+  costBar.innerHTML = '';
+  var costBasis = Math.max(firstMonthCharge, 1);
+  var costSegs = [
+    { label: 'Service charge', val: firstMonthService, color: 'var(--brass)' },
+    { label: 'Interest (cost)', val: firstMonthInterest, color: 'var(--cost)' },
+    { label: 'Principal (your equity)', val: firstMonthPrincipal, color: 'var(--equity)' }
+  ];
+  costSegs.forEach(function(s) {
+    if (s.val <= 0) return;
+    var d = document.createElement('div');
+    d.style.width = (s.val / costBasis * 100) + '%';
+    d.style.background = s.color;
+    costBar.appendChild(d);
+  });
+  el('costLegend').innerHTML = costSegs.filter(function(s){return s.val>0;}).map(function(s) {
+    return '<span><span class="sw" style="background:' + s.color + '"></span>' + s.label + ' ' + fmt(s.val) + '/mo</span>';
+  }).join('');
+
+  var years = series.map(function(s){ return s.year; });
+  var chargeData = series.map(function(s){ return Math.round(s.charge); });
+
+  var ctx = document.getElementById('equityChart');
+  var isDark = matchMedia('(prefers-color-scheme: dark)').matches;
+  var gridColor = isDark ? '#2c2c2a' : '#e1e0d9';
+  var tickColor = isDark ? '#AAB2A0' : '#565F51';
+  var costColor = isDark ? '#D48F7C' : '#8B4A3B';
+
+  var residentDatasets = [];
+  for (var di = 0; di < numResidents; di++) {
+    var hue = Math.round((di * 360) / Math.max(1, numResidents));
+    var lightness = isDark ? 62 : 38;
+    var color = 'hsl(' + hue + ', 45%, ' + lightness + '%)';
+    residentDatasets.push({
+      label: 'Resident ' + (di + 1) + ' equity (£' + Math.round(residentPayments[di]) + '/mo)',
+      data: series.map(function(s){ return Math.round(s.residentBalances[di]); }),
+      borderColor: color,
+      fill: false,
+      tension: 0.15,
+      pointRadius: 0,
+      borderWidth: 2
+    });
+  }
+
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: years,
+      datasets: residentDatasets.concat([
+        {
+          label: 'Monthly charge, standard payment (£)',
+          data: chargeData,
+          borderColor: costColor,
+          borderDash: [4,3],
+          fill: false,
+          tension: 0.15,
+          pointRadius: 0,
+          yAxisID: 'y1'
+        }
+      ])
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: true, position: 'bottom', labels: { color: tickColor, boxWidth: 12, font: { size: 11 } } }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Year', color: tickColor }, grid: { display: false }, ticks: { color: tickColor } },
+        y: { position: 'left', title: { display: true, text: 'Equity balance (£)', color: tickColor }, grid: { color: gridColor }, ticks: { color: tickColor, callback: function(v){ return fmtShort(v); } } },
+        y1: { position: 'right', title: { display: true, text: 'Monthly charge (£)', color: tickColor }, grid: { display: false }, ticks: { color: tickColor, callback: function(v){ return fmtShort(v); } } }
+      }
+    }
+  });
+
+  var residentRows = [];
+  var fixedCostPerResident = firstMonthService + firstMonthInterest;
+  for (var ti = 0; ti < numResidents; ti++) {
+    var t10 = (series[9] ? series[9].residentBalances[ti] : residentBalances[ti]);
+    var t20 = (series[19] ? series[19].residentBalances[ti] : residentBalances[ti]);
+    var t30 = (series[29] ? series[29].residentBalances[ti] : residentBalances[ti]);
+    var toEquityNow = Math.max(0, residentPayments[ti] - fixedCostPerResident);
+    residentRows.push('<tr><td>Resident ' + (ti+1) + '</td><td>' + fmt(residentPayments[ti]) + '</td><td class="row-label-cost">' + fmt(Math.min(residentPayments[ti], fixedCostPerResident)) + '</td><td class="row-label-equity">' + fmt(toEquityNow) + '</td><td>' + fmt(t10) + '</td><td>' + fmt(t20) + '</td><td>' + fmt(t30) + '</td></tr>');
+  }
+  el('residentTableBody').innerHTML = residentRows.join('');
+
+  var soloLTV = 80, soloRate = 6.5, soloYears = 25;
+  var soloLoan = price * soloLTV / 100;
+  var soloDeposit = price - soloLoan;
+  var soloSched = amortSchedule(soloLoan, soloRate, soloYears);
+  var soloMonthlyPayment = soloSched.length ? (soloSched[0].interest + soloSched[0].principal) : 0;
+
+  var rows = [0, 10, 20, 30].map(function(yr) {
+    var idx = yr === 0 ? 0 : Math.min(yr - 1, series.length - 1);
+    var s = yr === 0 ? { charge: firstMonthCharge, balance: 0 } : series[idx];
+    var rent = marketRent * Math.pow(1 + cpiMonthly, yr * 12);
+    var soloMonthsElapsed = yr * 12;
+    var soloStillPaying = soloMonthsElapsed < soloYears * 12;
+    var solo = soloStillPaying ? soloMonthlyPayment : 0;
+    return { yr: yr, coop: s.charge, equity: s.balance, rent: rent, solo: solo };
+  });
+  el('compareBody').innerHTML =
+    '<tr><td>Co-op resident</td>' + rows.map(function(r){ return '<td>' + fmt(r.coop) + '</td>'; }).join('') + '</tr>' +
+    '<tr><td class="row-label-equity">— equity held</td>' + rows.map(function(r){ return '<td class="row-label-equity">' + fmt(r.equity) + '</td>'; }).join('') + '</tr>' +
+    '<tr><td class="row-label-cost">Market rent (no equity)</td>' + rows.map(function(r){ return '<td class="row-label-cost">' + fmt(r.rent) + '</td>'; }).join('') + '</tr>' +
+    '<tr><td>Solo buyer (' + soloLTV + '% LTV, ' + soloRate.toFixed(1) + '%, ' + soloYears + 'yr)</td>' + rows.map(function(r){ return '<td>' + (r.solo === 0 ? 'Paid off' : fmt(r.solo)) + '</td>'; }).join('') + '</tr>';
+
+  el('soloNote').textContent = 'Solo buyer needs a ' + fmt(soloDeposit) + ' deposit up front and carries the whole ' + fmt(soloLoan) + ' mortgage alone — one household holding all the risk, versus it being split and mutualised across ' + numResidents + ' co-op residents above. Their payment stays flat in nominal terms until year ' + soloYears + ', then drops to zero — it never gradually declines the way the co-op\'s does as debt amortises, because a standard repayment mortgage is structured differently from the co-op\'s equity-credited model.';
+}
+
+el('resetPaymentsBtn').addEventListener('click', function() {
+  document.querySelectorAll('#residentPaymentsList input').forEach(function(inp) {
+    delete inp.dataset.customized;
+    inp.value = Math.round(lastStandardPayment);
+  });
+  recalc();
+});
+
+document.querySelectorAll('input').forEach(function(inp) {
+  inp.addEventListener('input', recalc);
+});
+recalc();
+</script>
+</body>
+</html>
