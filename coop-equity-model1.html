@@ -322,7 +322,7 @@ table.compare thead th {
 
 <header class="page">
   <h1>Co-op housing equity model</h1>
-  <p class="tagline">Model the capital stack, monthly costs and per-resident equity build-up for a mutual home ownership style co-op. Adjust anything on the left; every figure on the right recalculates.</p>
+  <p class="tagline">Model capital stack, monthly costs and per-resident equity build-up for a mutual home ownership (MHOS) style co-op.</p>
 
   <div class="summary-bar">
     <div class="summary-row">
@@ -338,7 +338,7 @@ table.compare thead th {
 <div class="cols">
 
   <div class="inputs-col">
-    <div class="section-title">The capital stack</div>
+    <div class="section-title">Capital stack</div>
 
     <fieldset>
       <legend>Property &amp; setup costs</legend>
@@ -511,7 +511,7 @@ table.compare thead th {
 </div>
 
 <p class="foot-note">
-  Each funding source has a checkbox next to its name — untick one to see the stack, the funding gap, and every downstream figure recompute as if that source weren't available at all, without losing the amount you've typed in. Stamp duty is calculated automatically from the purchase price at standard residential rates (no first-time-buyer relief, since that only applies to individuals, not a co-op purchasing as an entity) — change the price and it updates on its own; legal, survey and renovation costs stay separately editable. The resident list under "Each resident's monthly payment" grows or shrinks automatically with the number of residents set above. Any row you haven't personally edited keeps tracking the live standard payment automatically — change the price, loan terms, or resident count and it updates on its own. The moment you type into a row, it's treated as a deliberate choice and stops auto-updating, staying exactly where you set it regardless of what else changes; "Reset all to standard" clears that and lets every row resume tracking again. Service charge and interest are treated as fixed costs every resident must cover; anything paid above that converts straight to that resident's equity, and paying less slows their equity build accordingly, matching the CCKC document's own "pay only interest, ultra-low housing cost" option. Assumes each loanstock tier and the institutional loan amortise on schedule at their own fixed rate — the three loanstock tiers (0%, 3%, 5%) can be sized and termed independently and are simply summed together each month, matching how the CCKC document itself staggers loanstock into different tranches by rate and term — with equity credited monthly from the principal portion of debt service only (interest is a real cost, not equity), and each resident's accumulated equity indexed to the CPI rate you set. It does not model property appreciation, void periods, arrears, tax (SDLT, income tax on loanstock interest, CGT on withdrawal), or FCA/Co-operatives UK registration costs. Cross-check any real proposal with Radical Routes, Catalyst Collective, or Co-operative &amp; Community Finance before relying on it.
+  Each funding source has a checkbox next to its name — untick one to see how every downstream figure recomputes. Stamp duty is calculated automatically from the purchase price at standard residential rates (no first-time-buyer relief, since that only applies to individuals, not a co-op purchasing as an entity) — change the price and it updates on its own; legal, survey and renovation costs stay separately editable. The resident list under "Each resident's monthly payment" grows or shrinks automatically with the number of residents set above. Any row you haven't personally edited keeps tracking the live standard payment automatically — change the price, loan terms, or resident count and it updates on its own. When you manually edit a resident row, it stops auto-updating; "Reset all to standard" clears that and lets every row resume tracking again. Service charge and interest are treated as fixed costs every resident must cover; anything paid above that converts straight to that resident's equity, and paying less slows their equity build accordingly, matching the CCKC "pay only interest, ultra-low housing cost" option. Assumes each loanstock tier and the institutional loan amortise on schedule at their own fixed rate — the three loanstock tiers (0%, 3%, 5%) can be sized and termed independently and are simply summed together each month, matching how CCKC staggers loanstock into different tranches by rate and term — with equity credited monthly from the principal portion of debt service only (interest is a real cost, not equity), and each resident's accumulated equity indexed to the CPI rate you set. It does not model property appreciation, void periods, arrears, tax (SDLT, income tax on loanstock interest, CGT on withdrawal), or FCA/Co-operatives UK registration costs. Cross-check assumptions with Radical Routes, Catalyst Collective, or Co-operative &amp; Community Finance.
 </p>
 
 </div>
